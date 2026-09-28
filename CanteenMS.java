@@ -1,0 +1,158 @@
+import java.util.*;
+
+// ---- Custom Exceptions ----
+class ItemNotFoundException extends Exception {
+    ItemNotFoundException(String m) { super(m); }
+}
+class InvalidOrderException extends Exception {
+    InvalidOrderException(String m) { super(m); }
+}
+
+// ---- Interface ----
+interface Payable {
+    double total();
+}
+
+// ---- MenuItem (Encapsulation) ----
+class MenuItem {
+    int id; String name; double price; int stock;
+    MenuItem(int id, String name, double price, int stock) {
+        this.id = id; this.name = name; this.price = price; this.stock = stock;
+    }
+    public String toString() {
+        return id + ". " + name + " - Rs." + price + " (Stock:" + stock + ")";
+    }
+}
+
+// ---- Abstract User (Inheritance / Polymorphism) ----
+abstract class User {
+    String name;
+    User(String name) { this.name = name; }
+    abstract void menu();
+}
+class Student extends User {
+    Student(String n) { super(n); }
+    void menu() { System.out.println("1.View Menu 2.Order 3.Logout"); }
+}
+class Admin extends User {
+    Admin(String n) { super(n); }
+    void menu() { System.out.println("1.View Menu 2.Add Item 3.Logout"); }
+}
+
+// ---- Order (Collections + Interface) ----
+class Order implements Payable {
+    List<MenuItem> items = new ArrayList<>();
+    int[] qty = new int[50];   // parallel array for quantities
+    int count = 0;
+
+    void add(MenuItem m, int q) throws InvalidOrderException {
+        if (q <= 0 || q > m.stock) throw new InvalidOrderException("Invalid quantity for " + m.name);
+        items.add(m); qty[count++] = q; m.stock -= q;
+    }
+    public double total() {
+        double t = 0;
+        for (int i = 0; i < count; i++) t += items.get(i).price * qty[i];
+        return t;
+    }
+    void print() {
+        for (int i = 0; i < count; i++)
+            System.out.println(items.get(i).name + " x" + qty[i] + " = Rs." + (items.get(i).price * qty[i]));
+        System.out.println("TOTAL: Rs." + total());
+    }
+}
+
+// ---- Main ----
+public class CanteenMS {
+    static Scanner sc = new Scanner(System.in);
+    static List<MenuItem> menu = new ArrayList<>();
+
+    public static void main(String[] args) {
+        // Array of seed data -> loaded into a Collection (nested loop-style init)
+        Object[][] data = {{"Idli", 20.0, 30}, {"Dosa", 35.0, 25}, {"Tea", 10.0, 50}};
+        for (int i = 0; i < data.length; i++) {
+            menu.add(new MenuItem(i + 1, (String) data[i][0], (double) data[i][1], (int) data[i][2]));
+        }
+
+        boolean run = true;
+        while (run) {
+            System.out.println("\n1.Student 2.Admin 3.Exit");
+            int c = readInt();
+            switch (c) {
+                case 1: session(new Student(promptName())); break;
+                case 2: session(new Admin(promptName())); break;
+                case 3: run = false; System.out.println("Goodbye!"); break;
+                default: System.out.println("Invalid choice.");
+            }
+        }
+    }
+
+    static void session(User u) {
+        boolean loggedIn = true;
+        Order order = new Order();
+        while (loggedIn) {
+            u.menu();
+            int c = readInt();
+            try {
+                if (u instanceof Student) {
+                    switch (c) {
+                        case 1: showMenu(); break;
+                        case 2: placeOrder(order); break;
+                        case 3: loggedIn = false; break;
+                        default: System.out.println("Invalid.");
+                    }
+                } else {
+                    switch (c) {
+                        case 1: showMenu(); break;
+                        case 2: addItem(); break;
+                        case 3: loggedIn = false; break;
+                        default: System.out.println("Invalid.");
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("Error: " + e.getMessage());
+            }
+        }
+        if (order.count > 0) order.print();
+        System.out.println(u.name + " logged out.");
+    }
+
+    static void showMenu() {
+        for (MenuItem m : menu) System.out.println(m);   // loop over collection
+    }
+
+    static void placeOrder(Order order) throws ItemNotFoundException, InvalidOrderException {
+        showMenu();
+        System.out.print("Enter item ID: ");
+        int id = readInt();
+        MenuItem chosen = null;
+        for (MenuItem m : menu) if (m.id == id) chosen = m;   // linear search
+        if (chosen == null) throw new ItemNotFoundException("No item with ID " + id);
+        System.out.print("Enter quantity: ");
+        int q = readInt();
+        order.add(chosen, q);
+        System.out.println("Added to order.");
+    }
+
+    static void addItem() {
+        System.out.print("Name: ");
+        String name = sc.nextLine();
+        System.out.print("Price: ");
+        double price = Double.parseDouble(sc.nextLine());
+        System.out.print("Stock: ");
+        int stock = Integer.parseInt(sc.nextLine());
+        menu.add(new MenuItem(menu.size() + 1, name, price, stock));
+        System.out.println("Item added.");
+    }
+
+    static String promptName() {
+        System.out.print("Enter name: ");
+        return sc.nextLine();
+    }
+
+    static int readInt() {
+        while (true) {
+            try { return Integer.parseInt(sc.nextLine().trim()); }
+            catch (NumberFormatException e) { System.out.print("Enter a valid number: "); }
+        }
+    }
+}
